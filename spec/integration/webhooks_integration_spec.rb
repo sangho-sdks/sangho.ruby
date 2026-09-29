@@ -38,9 +38,9 @@ RSpec.describe "Webhooks Integration", :integration do
   end
 
   describe "#list" do
-    it "returns paginated results" do
+    it "returns paginated data" do
       result = client.webhooks.list
-      expect(result).to have_key(:results)
+      expect(result).to have_key(:data)
     end
   end
 
@@ -54,7 +54,7 @@ RSpec.describe "Webhooks Integration", :integration do
   describe "#list_deliveries" do
     it "returns delivery history" do
       result = client.webhooks.list_deliveries(shared_webhook[:id])
-      expect(result).to have_key(:results)
+      expect(result).to have_key(:data)
     end
   end
 

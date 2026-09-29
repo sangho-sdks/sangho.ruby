@@ -39,17 +39,14 @@ RSpec.describe "Invoices Integration", :integration do
     it "returns paginated invoices" do
       result = client.invoices.list(page_size: 5)
       expect(result).to have_key(:count)
-      expect(result[:results]).to be_an(Array)
+      expect(result[:data]).to be_an(Array)
     end
   end
 
-  describe "#finalize and #void" do
-    it "finalizes then voids an invoice" do
-      invoice   = client.invoices.create(customer: shared_customer[:id], amount: 3_000)
-      finalized = client.invoices.finalize(invoice[:id])
-      expect(%w[open finalized]).to include(finalized[:status].to_s)
-
-      voided = client.invoices.void(finalized[:id])
+  describe "#void" do
+    it "voids an invoice" do
+      invoice = client.invoices.create(customer: shared_customer[:id], amount: 3_000)
+      voided  = client.invoices.void(invoice[:id])
       expect(voided[:status].to_s).to eq("void")
     end
   end

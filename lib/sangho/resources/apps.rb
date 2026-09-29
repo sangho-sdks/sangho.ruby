@@ -2,11 +2,11 @@
 
 module Sangho
   module Resources
-    # Provides access to the Apps API resource.
+    # client.apps.{list, retrieve, create, update, delete, keys, options}
     class Apps < BaseResource
-      def list(**opts)
+      def list(**criteria)
         @http.assert_secret_key!('apps.list')
-        @http.get('/apps/', opts)
+        @http.get('/apps/', criteria)
       end
 
       def retrieve(id)
@@ -19,9 +19,9 @@ module Sangho
         @http.post('/apps/', { name: name }.merge(opts))
       end
 
-      def update(id, **params)
+      def update(id, **payload)
         @http.assert_secret_key!('apps.update')
-        @http.patch("/apps/#{id}/", params)
+        @http.patch("/apps/#{id}/", payload)
       end
 
       def delete(id)
@@ -29,12 +29,15 @@ module Sangho
         @http.delete("/apps/#{id}/")
       end
 
-      def roll_secret(id)
-        @http.assert_secret_key!('apps.roll_secret')
-        @http.post("/apps/#{id}/roll-secret/")
+      # Paire de clés (publique / secrète) actuelle de l'application.
+      def keys(id)
+        @http.assert_secret_key!('apps.keys')
+        @http.get("/apps/#{id}/keys/")
       end
 
-      def options = @http.options('/apps/')
+      def options
+        @http.options('/apps/')
+      end
     end
   end
 end

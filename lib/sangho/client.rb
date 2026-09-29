@@ -2,59 +2,43 @@
 
 require_relative 'http_client'
 require_relative 'resources/base_resource'
-require_relative 'resources/apps'
-require_relative 'resources/customers'
-require_relative 'resources/products'
-require_relative 'resources/payment_intents'
-require_relative 'resources/payment_links'
-require_relative 'resources/checkout_sessions'
-require_relative 'resources/invoices'
-require_relative 'resources/transactions'
-require_relative 'resources/refunds'
-require_relative 'resources/subscriptions'
-require_relative 'resources/payment_methods'
-require_relative 'resources/receipts'
-require_relative 'resources/webhooks'
-require_relative 'resources/security'
-require_relative 'resources/partners'
+%w[account addresses apps checkout_sessions customers invoices partners payment_intents payment_links
+   payment_methods products receipts refunds sandbox security subscriptions terminal transactions webhooks].each do |name|
+  require_relative "resources/#{name}"
+end
 
 module Sangho
-  # Client for interacting with the Sangho API.
-  # Provides access to resources such as apps, customers, products, payment intents, and more.
+  # Point d'entrée de l'API : un accesseur par ressource (client.customers, client.terminal.readers…).
   class SanghoClient
-    attr_reader :apps, :customers, :products, :payment_intents, :payment_links,
-                :checkout_sessions, :invoices, :transactions, :refunds,
-                :subscriptions, :payment_methods, :receipts, :webhooks,
-                :security, :partners
-
-    def initialize(api_key: Sangho.api_key, base_url: Sangho.base_url, timeout: Sangho.timeout)
-      raise ArgumentError, 'api_key is required' unless api_key
-
-      http = HttpClient.new(api_key: api_key, base_url: base_url, timeout: timeout)
-      initialize_resources(http)
-    end
-
-    private
-
     RESOURCE_CLASSES = {
+      account: Resources::Account,
+      addresses: Resources::Addresses,
       apps: Resources::Apps,
+      checkout_sessions: Resources::CheckoutSessions,
       customers: Resources::Customers,
-      products: Resources::Products,
+      invoices: Resources::Invoices,
+      partners: Resources::Partners,
       payment_intents: Resources::PaymentIntents,
       payment_links: Resources::PaymentLinks,
-      checkout_sessions: Resources::CheckoutSessions,
-      invoices: Resources::Invoices,
-      transactions: Resources::Transactions,
-      refunds: Resources::Refunds,
-      subscriptions: Resources::Subscriptions,
       payment_methods: Resources::PaymentMethods,
+      products: Resources::Products,
       receipts: Resources::Receipts,
-      webhooks: Resources::Webhooks,
+      refunds: Resources::Refunds,
+      sandbox: Resources::Sandbox,
       security: Resources::Security,
-      partners: Resources::Partners
+      subscriptions: Resources::Subscriptions,
+      terminal: Resources::Terminal,
+      transactions: Resources::Transactions,
+      webhooks: Resources::Webhooks
     }.freeze
 
-    def initialize_resources(http)
+    attr_reader(*RESOURCE_CLASSES.keys)
+
+    # @param max_retries [Integer] nouvelles tentatives sur 429, 5xx et erreurs réseau (backoff exponentiel).
+    def initialize(api_key: Sangho.api_key, base_url: Sangho.base_url, timeout: Sangho.timeout, **options)
+      raise ArgumentError, 'api_key is required' unless api_key
+
+      http = HttpClient.new(api_key: api_key, base_url: base_url, timeout: timeout, **options)
       RESOURCE_CLASSES.each { |key, klass| instance_variable_set("@#{key}", klass.new(http)) }
     end
   end

@@ -2,21 +2,21 @@
 
 module Sangho
   module Resources
-    # Provides access to the Checkout Sessions API resource.
+    # client.checkout_sessions.{list, retrieve, create, expire, delete, options}
     class CheckoutSessions < BaseResource
-      def list(**c)
+      def list(**criteria)
         @http.assert_secret_key!('checkout_sessions.list')
-        @http.get('/checkout-sessions/', c)
+        @http.get('/checkout-sessions/', criteria)
       end
 
+      # Le backend autorise explicitement la clé publique sur cette action (page de confirmation côté navigateur).
       def retrieve(id)
-        @http.assert_secret_key!('checkout_sessions.retrieve'); 
         @http.get("/checkout-sessions/#{id}/")
       end
 
-      def create(amount:, success_url:, cancel_url:, **o)
+      def create(amount:, success_url:, cancel_url:, **opts)
         @http.assert_secret_key!('checkout_sessions.create')
-        @http.post('/checkout-sessions/', {amount: amount, success_url: success_url, cancel_url: cancel_url}.merge(o))
+        @http.post('/checkout-sessions/', { amount: amount, success_url: success_url, cancel_url: cancel_url }.merge(opts))
       end
 
       def expire(id)
@@ -24,7 +24,14 @@ module Sangho
         @http.post("/checkout-sessions/#{id}/expire/")
       end
 
-      def options = @http.options('/checkout-sessions/')
+      def delete(id)
+        @http.assert_secret_key!('checkout_sessions.delete')
+        @http.delete("/checkout-sessions/#{id}/")
+      end
+
+      def options
+        @http.options('/checkout-sessions/')
+      end
     end
   end
 end

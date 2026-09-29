@@ -53,23 +53,23 @@ RSpec.describe "Customers Integration", :integration do
       result = client.customers.list(page_size: 5)
 
       expect(result).to have_key(:count)
-      expect(result).to have_key(:results)
+      expect(result).to have_key(:data)
       expect(result).to have_key(:next)
-      expect(result[:results]).to be_an(Array)
-      expect(result[:results].length).to be <= 5
+      expect(result[:data]).to be_an(Array)
+      expect(result[:data].length).to be <= 5
     end
 
     it "filters by status active" do
       result = client.customers.list(status: "active", page_size: 10)
 
-      result[:results].each do |c|
+      result[:data].each do |c|
         expect(c[:status]).to eq("active")
       end
     end
 
     it "finds customer by email search" do
       result = client.customers.list(search: shared_customer[:email])
-      ids    = result[:results].map { |c| c[:id] }
+      ids    = result[:data].map { |c| c[:id] }
 
       expect(ids).to include(shared_customer[:id])
     end
@@ -94,15 +94,6 @@ RSpec.describe "Customers Integration", :integration do
       expect {
         client.customers.retrieve(customer[:id])
       }.to raise_error(Sangho::SanghoNotFoundError)
-    end
-  end
-
-  describe "#list_transactions" do
-    it "returns a paginated list (possibly empty)" do
-      result = client.customers.list_transactions(shared_customer[:id])
-
-      expect(result).to have_key(:results)
-      expect(result[:results]).to be_an(Array)
     end
   end
 

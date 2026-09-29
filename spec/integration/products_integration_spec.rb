@@ -37,8 +37,8 @@ RSpec.describe "Products Integration", :integration do
     it "returns a paginated response" do
       result = client.products.list(page_size: 5)
       expect(result).to have_key(:count)
-      expect(result[:results]).to be_an(Array)
-      expect(result[:results].length).to be <= 5
+      expect(result[:data]).to be_an(Array)
+      expect(result[:data].length).to be <= 5
     end
   end
 
@@ -46,19 +46,6 @@ RSpec.describe "Products Integration", :integration do
     it "updates the product price" do
       updated = client.products.update(shared_product[:id], price: 9999)
       expect(updated[:price]).to eq(9999)
-    end
-  end
-
-  describe "#archive and #restore" do
-    it "archives then restores a product" do
-      product  = client.products.create(name: unique_name("Archive"), price: 1000)
-      archived = client.products.archive(product[:id])
-      expect(%w[archived inactive]).to include(archived[:status].to_s)
-
-      restored = client.products.restore(product[:id])
-      expect(restored[:status].to_s).to eq("active")
-
-      client.products.delete(product[:id])
     end
   end
 

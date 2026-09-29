@@ -49,7 +49,7 @@ Ce SDK suit le **Semantic Versioning** :
 - `MINOR` — nouvelle fonctionnalité rétrocompatible
 - `PATCH` — correction de bug rétrocompatible
 
-Tous les SDKs sont versionnés de façon synchronisée (ex: v1.2.0 = même version partout).
+Tous les SDKs sont versionnés de façon synchronisée (ex: v0.1.4 = même version partout).
 
 ---
 

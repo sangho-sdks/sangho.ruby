@@ -2,40 +2,43 @@
 
 module Sangho
   module Resources
+    # client.customers.{list, retrieve, create, update, delete, list_payment_methods, options}
     class Customers < BaseResource
-
-      def list(**c)   ; 
-        @http.assert_secret_key!('customers.list') 
-        @http.get('/customers/', c)
+      def list(**criteria)
+        @http.assert_secret_key!('customers.list')
+        @http.get('/customers/', criteria)
       end
 
-      def retrieve(id) 
-        @http.assert_secret_key!('customers.retrieve') 
+      def retrieve(id)
+        @http.assert_secret_key!('customers.retrieve')
         @http.get("/customers/#{id}/")
       end
 
-      def create(email:, name:, **o); 
-        @http.assert_secret_key!("customers.create"); 
-        @http.post("/customers/", {email: email, name: name}.merge(o)); 
+      def create(email:, name:, **opts)
+        @http.assert_secret_key!('customers.create')
+        @http.post('/customers/', { email: email, name: name }.merge(opts))
       end
 
-      def update(id, **p); 
-        @http.assert_secret_key!("customers.update"); 
-        @http.patch("/customers/#{id}/", p); 
+      def update(id, **payload)
+        @http.assert_secret_key!('customers.update')
+        @http.patch("/customers/#{id}/", payload)
       end
 
-      def delete(id)     ; 
-        @http.assert_secret_key!("customers.delete"); 
-        @http.delete("/customers/#{id}/"); 
+      def delete(id)
+        @http.assert_secret_key!('customers.delete')
+        @http.delete("/customers/#{id}/")
       end
 
-      def list_transactions(id, **c); 
-        @http.assert_secret_key!("customers.list_transactions"); 
-        @http.get("/customers/#{id}/transactions/", c); 
+      # Moyens de paiement d'un client : GET /payment-methods/?customer=<id>
+      # (la route /customers/{id}/payment-methods/ n'existe pas côté API).
+      def list_payment_methods(id, **criteria)
+        @http.assert_secret_key!('customers.list_payment_methods')
+        @http.get('/payment-methods/', criteria.merge(customer: id))
       end
 
-      def options() = @http.options("/customers/")
-
+      def options
+        @http.options('/customers/')
+      end
     end
   end
 end

@@ -1,9 +1,8 @@
 # Sangho Ruby SDK
 
-SDK officiel Ruby pour l'API [Sangho](https://sangho.africa) — paiements XAF pour l'Afrique.
+SDK officiel Ruby pour l'API [Sangho](https://sangho.ga) — paiements XAF pour l'Afrique.
 
-[![Gem Version](https://badge.fury.io/rb/sangho.svg)](https://badge.fury.io/rb/sangho)
-[![CI](https://github.com/sangho-sdks/sangho-ruby/actions/workflows/ci.yml/badge.svg)](https://github.com/sangho-sdks/sangho-ruby/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-docs.sangho.ga-navy)](https://docs.sangho.ga/api/sdks/ruby/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -20,40 +19,107 @@ Ou dans votre `Gemfile` :
 gem 'sangho'
 ```
 
-## Quickstart
+Ruby ≥ 3.1.
+
+## Démarrage
 
 ```ruby
 require 'sangho'
 
-client = Sangho::Client.new(secret_key: 'sk_live_...')
+client = Sangho.new('sk_test_...')   # clé de test ; en production : sk_prod_...
 
-# Créer un payment intent
-intent = client.payment_intents.create(
-  amount:   5000,
-  currency: 'XAF',
-  customer: 'cust_xxx'
-)
+customer = client.customers.create(email: 'jean@example.com', name: 'Jean Ondo')
+puts customer[:id]                   # les réponses sont des Hash aux clés symboles
 
-puts intent.id
+intent = client.payment_intents.create(amount: 5000, customer: customer[:id])
+puts intent[:status]
 ```
 
-## Documentation
+Configuration globale (optionnelle) :
 
-La documentation complète est disponible sur [docs.sangho.africa](https://docs.sangho.africa).
+```ruby
+Sangho.configure do |c|
+  c.api_key = ENV.fetch('SANGHO_SECRET_KEY')
+  c.timeout = 30
+end
+client = Sangho::SanghoClient.new
+```
 
-## Ressources disponibles
+Options du client : `base_url:` (défaut `https://api.sangho.ga/v1`, HTTPS obligatoire hors `localhost`), `timeout:`
+(secondes, défaut 30), `max_retries:` (défaut 3).
 
-`apps` · `customers` · `products` · `payment_intents` · `checkout_sessions` ·
-`invoices` · `transactions` · `refunds` · `subscriptions` · `payment_methods` ·
-`webhooks` · `payment_links` · `addresses` · `partners`
+Les clés commencent par `pk_test_`, `sk_test_` (bac à sable) ou `pk_prod_`, `sk_prod_` (production). Une **clé
+publique** (`pk_…`) ne peut appeler que `checkout_sessions.retrieve` ; tout le reste exige une clé secrète.
 
-## Contribuer
+## Listes paginées
 
-Voir [CONTRIBUTING.md](CONTRIBUTING.md).
+```ruby
+page = client.customers.list(page: 1, page_size: 20)
+page[:count]   # total
+page[:data]    # éléments de la page (et non :results)
+page[:next]    # URL de la page suivante ou nil
+```
 
-## Changelog
+## Gestion des erreurs
 
-Voir [CHANGELOG.md](CHANGELOG.md).
+Toutes les erreurs héritent de `Sangho::SanghoError` et exposent `type` (catégorie large), `code` (code métier précis du
+backend), `status_code`, `param`, `request_id` et `raw` :
+
+```ruby
+begin
+  client.payment_intents.create(amount: 1, customer: 'cus_1')
+rescue Sangho::SanghoValidationError => e
+  e.type          # => "VALIDATION_ERROR"
+  e.code          # => "AMOUNT_TOO_SMALL"
+  e.field_errors  # => { amount: ["…"] }
+  e.request_id    # à communiquer au support
+rescue Sangho::SanghoRateLimitError => e
+  sleep e.retry_after
+rescue Sangho::SanghoNetworkError, Sangho::SanghoTimeoutError
+  # la requête n'a pas abouti
+end
+```
+
+| Classe                     | Statut | `type`                 |
+| -------------------------- | ------ | ---------------------- |
+| `SanghoAuthError`          | 401    | `AUTHENTICATION_ERROR` |
+| `SanghoPublicKeyError`     | 403    | `PERMISSION_ERROR` (code `PUBLIC_KEY_NOT_ALLOWED`) |
+| `SanghoPermissionError`    | 403    | `PERMISSION_ERROR`     |
+| `SanghoNotFoundError`      | 404    | `NOT_FOUND_ERROR`      |
+| `SanghoIdempotencyError`   | 409    | `CONFLICT_ERROR`       |
+| `SanghoValidationError`    | 422    | `VALIDATION_ERROR`     |
+| `SanghoRateLimitError`     | 429    | `RATE_LIMIT_ERROR`     |
+| `SanghoNetworkError`       | —      | `NETWORK_ERROR`        |
+| `SanghoTimeoutError`       | —      | `TIMEOUT_ERROR`        |
+
+Les erreurs `429` (en respectant `retry_after`), `5xx` et réseau sont réessayées avec un backoff exponentiel
+(`max_retries`). Les autres `4xx` ne le sont jamais. Chaque `POST` envoie une `Idempotency-Key` (UUID).
+
+## Webhooks
+
+```ruby
+event = Sangho::Resources::Webhooks.construct_event(request.body.read, request.headers['Sangho-Signature'], ENV['WEBHOOK_SECRET'])
+```
+
+Lève `Sangho::SanghoError` si la signature est invalide ou l'événement périmé (tolérance 300 s par défaut).
+
+## Ressources
+
+`account` · `addresses` · `apps` · `checkout_sessions` · `customers` · `invoices` · `partners` (lecture seule) ·
+`payment_intents` · `payment_links` · `payment_methods` · `products` · `receipts` · `refunds` · `sandbox` · `security` ·
+`subscriptions` · `terminal` (`readers`, `sessions`, `offline`) · `transactions` · `webhooks`.
+
+Documentation complète : [docs.sangho.ga](https://docs.sangho.ga/api/sdks/ruby/).
+
+## Développement
+
+```bash
+make install   # bundle install
+make test      # rspec (specs unitaires ; spec/integration vise l'API réelle)
+make lint      # rubocop
+```
+
+Voir [CONTRIBUTING.md](CONTRIBUTING.md) et [CHANGELOG.md](CHANGELOG.md).
 
 ## Licence
 

@@ -47,7 +47,7 @@ RSpec.describe "PaymentIntents Integration", :integration do
       result = client.payment_intents.list(page_size: 5)
 
       expect(result).to have_key(:count)
-      expect(result[:results]).to be_an(Array)
+      expect(result[:data]).to be_an(Array)
     end
   end
 

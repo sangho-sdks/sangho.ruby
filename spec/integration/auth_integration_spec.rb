@@ -6,9 +6,9 @@ require_relative "integration_helper"
 RSpec.describe "Authentication Integration", :integration do
 
   describe "valid secret key" do
-    it "authenticates and returns results" do
+    it "authenticates and returns data" do
       result = client.customers.list(page_size: 1)
-      expect(result).to have_key(:results)
+      expect(result).to have_key(:data)
     end
   end
 
@@ -41,7 +41,7 @@ RSpec.describe "Authentication Integration", :integration do
     end
 
     it "accepts all 4 valid prefixes without error" do
-      %w[sk_live_ sk_test_ pk_live_ pk_test_].each do |prefix|
+      %w[sk_prod_ sk_test_ pk_prod_ pk_test_].each do |prefix|
         expect {
           Sangho.new(prefix + "x" * 20, base_url: IntegrationHelper.base_url)
         }.not_to raise_error

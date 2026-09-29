@@ -9,7 +9,7 @@ RSpec.describe "Refunds Integration", :integration do
     it "returns a paginated list" do
       result = client.refunds.list(page_size: 5)
       expect(result).to have_key(:count)
-      expect(result[:results]).to be_an(Array)
+      expect(result[:data]).to be_an(Array)
     end
   end
 

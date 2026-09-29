@@ -30,8 +30,10 @@ lint-fix:
 build:
 	$(GEM) build sangho.gemspec
 
-publish:
-	$(GEM) push sangho-1.0.0.gem
+VERSION = $(shell ruby -Ilib -e "require 'sangho/version'; print Sangho::VERSION")
+
+publish: build
+	$(GEM) push sangho-$(VERSION).gem
 
 clean:
 ifeq ($(OS),Windows_NT)

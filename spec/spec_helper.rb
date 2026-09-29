@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "sangho"
-require "webmock/rspec"
+require 'sangho'
+require 'webmock/rspec'
 
 WebMock.disable_net_connect!
 

@@ -9,13 +9,13 @@ RSpec.describe "Transactions Integration", :integration do
     it "returns a paginated list" do
       result = client.transactions.list(page_size: 5)
       expect(result).to have_key(:count)
-      expect(result[:results]).to be_an(Array)
-      expect(result[:results].length).to be <= 5
+      expect(result[:data]).to be_an(Array)
+      expect(result[:data].length).to be <= 5
     end
 
     it "supports ordering by created_at desc" do
       result = client.transactions.list(ordering: "-created_at", page_size: 10)
-      expect(result).to have_key(:results)
+      expect(result).to have_key(:data)
     end
   end
 

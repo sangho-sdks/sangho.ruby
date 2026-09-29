@@ -7,11 +7,31 @@ Ce projet respecte le [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
-## [Unreleased]
+## [0.2.0] - 2026-09-29
 
 > **Versionnement.** La version 1.0.0 ci-dessous était interne : ce SDK n'a jamais été publié (RubyGems). La
 > numérotation est réalignée sur celle du SDK JS (`@sanghosdk/js` 0.1.4, seul SDK publié), comme le demande
-> `CONTRIBUTING.md` (« tous les SDKs sont versionnés de façon synchronisée »). Version courante : **0.1.4**.
+> `CONTRIBUTING.md` (« tous les SDKs sont versionnés de façon synchronisée »). Version courante : **0.2.0** (0.1.4 = alignement sur l'API ; 0.2.0 y ajoute Connect, la vérification des signatures
+> webhook et l'idempotence, comme les SDK JS, Python et PHP).
+
+### Added
+- **Paiement sécurisé à la livraison (Connect)** — `client.connect.payments` : `retrieve`, `release`, `refund` (`scope` :
+  `product` / `full` / `amount`), `freeze`, `unfreeze`, `simulate_payment` (sandbox) ; `client.connect.accounts` :
+  `create` (idempotent par `external_id`), `retrieve`, `list`, `reissue_claim_token`, `create_kyc_session`, `balance`,
+  `create_payout`, `list_payouts`.
+- `idempotency_key:` OBLIGATOIRE sur `release`, `refund` et `create_payout` : `SanghoValidationError` levée avant tout
+  appel réseau si elle manque.
+- `idempotency_key:` accepté par toutes les méthodes d'écriture ; sans clé, un POST n'est plus rejoué après un délai
+  dépassé / une erreur réseau (risque de doublon côté serveur).
+- `checkout_sessions.create(line_items:, success_url:, currency: 'XAF', connect: {…})` (l'ancien `amount:` est converti en
+  une ligne ad hoc, avec un avertissement) ; `payment_intents.create(amount:, currency:, customer_email:)`.
+- Erreurs `SanghoPlatformPartnerRequiredError` (403), `SanghoConflictError` (409 d'état métier, ex : `account_not_claimed`)
+  et `SanghoWebhookSignatureError` (`reason` : `malformed` / `expired` / `mismatch`, sous-classe de `SanghoError`).
+- `Webhooks.construct_event` accepte une liste de secrets (rotation) et plusieurs `v1` ; `Webhooks.generate_test_header`
+  produit un en-tête valide pour tester son endpoint.
+
+### Changed
+- Les réponses d'erreur Connect au format `{"error": {"code", "message"}}` sont lues comme le format plat des autres routes.
 
 ### Fixed
 - **Bloquant** : toutes les requêtes partaient vers `https://api.sangho.ga/<ressource>/` au lieu de

@@ -2,7 +2,7 @@
 
 require_relative 'http_client'
 require_relative 'resources/base_resource'
-%w[account addresses apps checkout_sessions customers invoices partners payment_intents payment_links
+%w[account addresses apps checkout_sessions connect customers invoices partners payment_intents payment_links
    payment_methods products receipts refunds sandbox security subscriptions terminal transactions webhooks].each do |name|
   require_relative "resources/#{name}"
 end
@@ -15,6 +15,7 @@ module Sangho
       addresses: Resources::Addresses,
       apps: Resources::Apps,
       checkout_sessions: Resources::CheckoutSessions,
+      connect: Resources::Connect,
       customers: Resources::Customers,
       invoices: Resources::Invoices,
       partners: Resources::Partners,

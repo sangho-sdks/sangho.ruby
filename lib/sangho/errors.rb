@@ -78,6 +78,21 @@ module Sangho
     end
   end
 
+  # 403 — la ressource est réservée aux Apps « Partenaire Plateforme » (routes Connect).
+  class SanghoPlatformPartnerRequiredError < SanghoError
+    def initialize(msg = 'This App is not a Platform Partner.', status_code: 403, raw: {})
+      super(msg, type: 'PERMISSION_ERROR', status_code: status_code, raw: raw)
+      @code = (@raw[:code] || 'platform_partner_required').to_s
+    end
+  end
+
+  # 409 — conflit d'état métier (ex : +account_not_claimed+). Distinct de SanghoIdempotencyError.
+  class SanghoConflictError < SanghoError
+    def initialize(msg = 'Conflict.', status_code: 409, raw: {})
+      super(msg, type: 'CONFLICT_ERROR', status_code: status_code, raw: raw)
+    end
+  end
+
   # 409 — clé d'idempotence réutilisée avec un corps différent.
   class SanghoIdempotencyError < SanghoError
     def initialize(msg = 'Idempotency key reused with different request parameters.', status_code: 409, raw: {})
@@ -119,6 +134,25 @@ module Sangho
   class SanghoTimeoutError < SanghoError
     def initialize(timeout = nil)
       super(timeout ? "Request timed out after #{timeout}s." : 'Request timed out.', type: 'TIMEOUT_ERROR')
+    end
+  end
+
+  # Signature de webhook refusée. +reason+ : +malformed+ (en-tête illisible, 400), +expired+ (horodatage hors
+  # tolérance, 400) ou +mismatch+ (aucune signature ne correspond à un secret, 401).
+  #
+  # Sous-classe de SanghoError : +code+ garde les valeurs historiques (+invalid_signature+, +stale_event+).
+  class SanghoWebhookSignatureError < SanghoError
+    MALFORMED = 'malformed'
+    EXPIRED = 'expired'
+    MISMATCH = 'mismatch'
+
+    attr_reader :reason
+
+    def initialize(reason, msg)
+      @reason = reason
+      super(msg, type: reason == MISMATCH ? 'AUTHENTICATION_ERROR' : 'VALIDATION_ERROR',
+                 status_code: reason == MISMATCH ? 401 : 400,
+                 raw: { code: reason == EXPIRED ? 'stale_event' : 'invalid_signature' })
     end
   end
 end

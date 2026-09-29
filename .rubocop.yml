@@ -17,6 +17,10 @@ Metrics/AbcSize:
   Max: 30
 Metrics/CyclomaticComplexity:
   Max: 12
+Metrics/PerceivedComplexity:
+  Max: 12
+Metrics/ParameterLists:
+  CountKeywordArgs: false   # les ressources exposent des arguments nommés (API façon Stripe)
 Metrics/BlockLength:
   Exclude:
     - 'spec/**/*'

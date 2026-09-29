@@ -14,9 +14,15 @@ module Sangho
         @http.get("/payment-intents/#{id}/")
       end
 
-      def create(amount:, customer:, **opts)
+      # @param amount [Integer, String] montant en unité MAJEURE de la devise (5000 = 5000 XAF), jamais en centimes.
+      # @param currency [String] code ISO 4217 (défaut XAF) — exigé par le backend.
+      # @param customer_email [String] e-mail de l'acheteur (le backend lit +customer_email+).
+      # @param opts +idempotency_key:+, +customer:+ (transmis tel quel), +description+, +metadata+…
+      def create(amount:, currency: 'XAF', customer_email: nil, **opts)
         @http.assert_secret_key!('payment_intents.create')
-        @http.post('/payment-intents/', { amount: amount, customer: customer }.merge(opts))
+        body = { amount: amount, currency: currency }.merge(opts)
+        body[:customer_email] = customer_email if customer_email
+        @http.post('/payment-intents/', body)
       end
 
       def update(id, **payload)

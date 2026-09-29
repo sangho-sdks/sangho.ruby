@@ -73,40 +73,75 @@ module Sangho
         @http.options('/webhooks/')
       end
 
-      # Vérifie la signature HMAC-SHA256 (en-tête « t=<timestamp>,v1=<signature> ») et retourne l'événement décodé.
+      # Vérifie la signature HMAC-SHA256 et retourne l'événement décodé.
+      #
+      # En-tête « Sangho-Signature: t=<ts>,v1=<hex>[,v1=<hex>…] », message signé « <ts>.<corps brut> ». Plusieurs +v1+
+      # (et une liste de secrets) sont acceptés pour la rotation ; comparaison à temps constant. Passez le corps BRUT.
+      #
+      # @param secret [String, Array<String>] secret du webhook, ou liste de secrets pendant une rotation
+      # @raise [SanghoWebhookSignatureError] +reason+ : malformed / expired / mismatch
       def self.construct_event(payload, sig_header, secret, tolerance: 300)
-        parts = parse_signature_header(sig_header)
-        validate_signature_header(parts, tolerance)
-        validate_signature(payload, parts, secret)
-        JSON.parse(payload, symbolize_names: true)
+        timestamp, signatures = parse_signature_header(sig_header)
+        if (Time.now.to_i - timestamp).abs > tolerance
+          raise SanghoWebhookSignatureError.new(SanghoWebhookSignatureError::EXPIRED, 'Webhook timestamp too old.')
+        end
+        unless signature_valid?(payload, timestamp, signatures, secret)
+          raise SanghoWebhookSignatureError.new(SanghoWebhookSignatureError::MISMATCH, 'Webhook signature mismatch.')
+        end
+
+        begin
+          JSON.parse(payload, symbolize_names: true)
+        rescue JSON::ParserError
+          raise SanghoError.new('Webhook body is not valid JSON.', status_code: 400, raw: { code: 'invalid_payload' })
+        end
       end
 
+      # Génère un en-tête +Sangho-Signature+ valide pour tester votre endpoint webhook.
+      def self.generate_test_header(payload, secret, timestamp: nil)
+        ts = timestamp || Time.now.to_i
+        "t=#{ts},v1=#{OpenSSL::HMAC.hexdigest('SHA256', secret, "#{ts}.#{payload}")}"
+      end
+
+      # @return [Array(Integer, Array<String>)] horodatage et signatures +v1+
       def self.parse_signature_header(sig_header)
-        sig_header.to_s.split(',').each_with_object({}) do |part, hash|
-          key, value = part.split('=', 2)
-          hash[key] = value
+        malformed = -> { SanghoWebhookSignatureError.new(SanghoWebhookSignatureError::MALFORMED, 'Invalid Sangho-Signature header.') }
+        header = sig_header.to_s
+        raise malformed.call if header.empty?
+
+        timestamp = nil
+        signatures = []
+        header.split(',').each do |part|
+          key, value = part.split('=', 2).map { |x| x.to_s.strip }
+          next if value.nil?
+
+          if key == 't'
+            raise malformed.call unless value.match?(/\A\d+\z/)
+
+            timestamp = value.to_i
+          elsif key == 'v1' && !value.empty?
+            signatures << value
+          end
         end
+        raise malformed.call if timestamp.nil? || signatures.empty?
+
+        [timestamp, signatures]
       end
 
-      def self.validate_signature_header(parts, tolerance)
-        timestamp = parts['t']
-        unless timestamp && parts['v1']
-          raise SanghoError.new('Invalid Sangho-Signature header.',
-                                raw: { code: 'invalid_signature' })
+      def self.signature_valid?(payload, timestamp, signatures, secret)
+        matched = false
+        Array(secret).each do |candidate|
+          next if candidate.to_s.empty?
+
+          expected = OpenSSL::HMAC.hexdigest('SHA256', candidate.to_s, "#{timestamp}.#{payload}")
+          # Pas de court-circuit : le temps ne dépend pas du +v1+ qui correspond.
+          signatures.each do |received|
+            same = expected.bytesize == received.bytesize && OpenSSL.fixed_length_secure_compare(expected, received)
+            matched ||= same
+          end
         end
-        return unless (Time.now.to_i - timestamp.to_i).abs > tolerance
-
-        raise SanghoError.new('Webhook timestamp too old.', raw: { code: 'stale_event' })
+        matched
       end
-
-      def self.validate_signature(payload, parts, secret)
-        expected = OpenSSL::HMAC.hexdigest('SHA256', secret, "#{parts['t']}.#{payload}")
-        received = parts['v1'].to_s
-        # Comparaison en temps constant (l'ancienne comparaison « == » fuyait la signature par mesure du temps de réponse).
-        valid = expected.bytesize == received.bytesize && OpenSSL.fixed_length_secure_compare(expected, received)
-        raise SanghoError.new('Webhook signature mismatch.', raw: { code: 'invalid_signature' }) unless valid
-      end
-      private_class_method :parse_signature_header, :validate_signature_header, :validate_signature
+      private_class_method :parse_signature_header, :signature_valid?
     end
   end
 end

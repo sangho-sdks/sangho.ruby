@@ -39,8 +39,15 @@ module Sangho
       request(:get, path, params: params.compact)
     end
 
+    # POST avec en-tête +Idempotency-Key+. La clé peut être passée en argument ou via +idempotency_key:+ dans le corps
+    # (toutes les méthodes d'écriture l'acceptent donc). Sans clé, une nouvelle est générée et un POST n'est PAS rejoué
+    # après un délai dépassé / une erreur réseau (le serveur a pu le traiter : risque de doublon). Avec une clé fournie,
+    # ce rejeu est sûr et activé.
     def post(path, body = {}, idempotency_key: nil)
-      request(:post, path, body: body, headers: { 'Idempotency-Key' => idempotency_key || SecureRandom.uuid })
+      body = body.dup
+      explicit = idempotency_key || body.delete(:idempotency_key)
+      request(:post, path, body: body, headers: { 'Idempotency-Key' => explicit || SecureRandom.uuid },
+                           retry_transport: !explicit.nil?)
     end
 
     def patch(path, body)
@@ -97,13 +104,13 @@ module Sangho
       end
     end
 
-    def request(method, path, params: {}, body: nil, headers: {})
+    def request(method, path, params: {}, body: nil, headers: {}, retry_transport: true)
       attempt = 0
       loop do
         begin
           resp = perform(method, path, params, body, headers)
         rescue Faraday::TimeoutError, Faraday::ConnectionFailed, Faraday::SSLError => e
-          raise transport_error(e) if attempt >= @max_retries
+          raise transport_error(e) if !retry_transport || attempt >= @max_retries
         else
           begin
             return handle(resp)
@@ -161,6 +168,8 @@ module Sangho
 
     def build_error(resp, data)
       data = {} unless data.is_a?(Hash)
+      # Les routes Connect renvoient {"error": {"code", "message"}} : on aplatit pour lire le même format partout.
+      data = data.merge(data[:error]) if data[:error].is_a?(Hash)
       status = resp.status
       msg = error_message(data)
       # Insensible à la casse : le backend envoie tantôt "PUBLIC_KEY_NOT_ALLOWED", tantôt "public_key_not_allowed".
@@ -168,14 +177,29 @@ module Sangho
 
       case status
       when 401 then SanghoAuthError.new(msg, raw: data)
-      when 403
-        code == 'public_key_not_allowed' ? SanghoPublicKeyError.new(msg, raw: data) : SanghoPermissionError.new(msg, raw: data)
+      when 403 then permission_error(code, msg, data)
       when 404 then SanghoNotFoundError.new(msg, raw: data)
-      when 409 then SanghoIdempotencyError.new(raw: data)
+      when 409 then conflict_error(code, msg, data)
       when 422 then SanghoValidationError.new(validation_message(data, msg), raw: data)
       when 429 then SanghoRateLimitError.new(data[:message], retry_after: retry_after(resp, data), raw: data)
       else SanghoError.new(msg, status_code: status, raw: data)
       end
+    end
+
+    def permission_error(code, msg, data)
+      case code
+      when 'public_key_not_allowed' then SanghoPublicKeyError.new(msg, raw: data)
+      when 'platform_partner_required' then SanghoPlatformPartnerRequiredError.new(msg, raw: data)
+      else SanghoPermissionError.new(msg, raw: data)
+      end
+    end
+
+    # Sans code (ancien backend) ou +idempotency_conflict+ : clé d'idempotence rejouée avec un autre corps ;
+    # tout autre code est un conflit d'état métier (ex : +account_not_claimed+).
+    def conflict_error(code, msg, data)
+      return SanghoIdempotencyError.new(raw: data) if code.empty? || code == 'idempotency_conflict'
+
+      SanghoConflictError.new(msg, raw: data)
     end
 
     def error_message(data)
